@@ -9,7 +9,7 @@
 #include "bsp/board.h"
 #include "pico/cyw43_arch.h"
 #include "hardware/uart.h"
-#include "util.hpp"
+#include "util.h"
 
 int main() {
     // Initialise UART

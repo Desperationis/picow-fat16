@@ -22,6 +22,8 @@ add_executable(main
     src/main.cpp
 	src/usb_descriptors.cpp
 	src/msc_disk.cpp
+	src/util.cpp
+	src/fat.cpp
 )
 
 target_include_directories(main PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/)

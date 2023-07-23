@@ -1,14 +1,11 @@
+#include "util.h"
 #include "device/usbd.h"
 #include <stdarg.h>
 #include "string.h"
 #include "pico/cyw43_arch.h"
+#include "hardware/uart.h"
 #include "bsp/board.h"
 
-#define UART_ID uart0
-#define BAUD_RATE 115200
-
-#define UART_TX_PIN 0
-#define UART_RX_PIN 1
 
 
 /**
@@ -50,3 +47,4 @@ void stateless_led_blink() {
 
 	cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1 ? led_toggle : 0);
 }
+
