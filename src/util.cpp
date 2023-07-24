@@ -7,7 +7,6 @@
 #include "bsp/board.h"
 
 
-
 /**
  * Slowly print out string to UART to reduce impedeance on thin wires.
  */

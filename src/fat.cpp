@@ -15,24 +15,26 @@ Fat16::Fat16() {
 	for(size_t i = 0; i < oem.size(); i++)
 		boot.oem_name[i] = oem[i];
 
-	// Pico memory is little endian, so Little Endian conversion is done
-	// automatically on memcpy.
-	boot.sector_size = uint16_t(0x0200);
-	boot.cluster_size = 0x08;
-	boot.reserved_sectors = int16_t(0x0001);
-	boot.fat_copies = 0x02;
-	boot.root_dir_entries = uint16_t(0x0200);
-	boot.total_sec_16 = 0x0000;
-	boot.media_type = 0xF8;
-	boot.fat_table_size = uint16_t(0x0081);
-	boot.sec_per_trk = uint16_t(0x0001);
-	boot.num_heads = uint16_t(0x0001);
-	boot.hidd_sec = uint32_t(0x00000001);
-	boot.total_sec_32 = uint32_t(0x0003FFFF);
-	boot.drive_num = 0x00;
-	boot.reserved = 0x00;
-	boot.boot_sig = 0x29;
-	boot.volume_id = uint32_t(0x000B0450);
+	// This is the raw data that must be written in little endian to flash,
+	// as FAT is little endian. Thankfully, the pico itself has memory that
+	// works in little endian. Because of this, memcpy down below does this
+	// conversion automatically on structs whenever data needs to be read.
+	boot.sector_size =		uint16_t(512);
+	boot.cluster_size =		uint8_t(8);
+	boot.reserved_sectors = int16_t(1);
+	boot.fat_copies =		uint8_t(2);
+	boot.root_dir_entries = uint16_t(512);
+	boot.total_sec_16 =		uint16_t(0);
+	boot.media_type =		uint8_t(0xF8);
+	boot.fat_table_size =	uint16_t(129);
+	boot.sec_per_trk =		uint16_t(1);
+	boot.num_heads =		uint16_t(1);
+	boot.hidd_sec =			uint32_t(1);
+	boot.total_sec_32 =		uint32_t(262143); // Total flash in bytes
+	boot.drive_num =		uint8_t(0x00);
+	boot.reserved =			uint8_t(0x00);
+	boot.boot_sig =			uint8_t(0x29);
+	boot.volume_id =		uint32_t(0x000B0450);
 
 	std::string label("picowremote");
 	for(size_t i = 0; i < label.size(); i++)
@@ -47,16 +49,21 @@ Fat16::Fat16() {
 
 	boot.bootsign = uint16_t(0xAA55);
 
+
+
+	fat_table.push(0xFFF8); // FAT ID
+	fat_table.push(0xFFFF); 
+	fat_table.push(0xFFFF); // HTML Doc
+	fat_table.push(0xFFFF); // TXT File
 }
 
 
 void Fat16::print_reserved() {
-	auto boot_sect = (fat::BootSector*)DISK_reservedSection;
-    safe_print("bootOEM %.8s\n", boot_sect->oem_name);
-    safe_print("cluster size %x\n",boot_sect->cluster_size);
-    safe_print("fat copies %x\n", boot_sect->fat_copies);
-    safe_print("fat table size %x\n", boot_sect->fat_table_size);
-    safe_print("totalSec32 %x\n", boot_sect->total_sec_32);
+    safe_print("bootOEM %.8s\n", boot.oem_name);
+    safe_print("cluster size %x\n",boot.cluster_size);
+    safe_print("fat copies %x\n", boot.fat_copies);
+    safe_print("fat table size %x\n", boot.fat_table_size);
+    safe_print("totalSec32 %x\n", boot.total_sec_32);
 }
 
 
@@ -79,11 +86,11 @@ int32_t Fat16::get_block(const uint32_t lba, void* buffer, uint32_t bufsize) {
 	// FAT #2 is meant to be used to have a copy of data for corruption prevention.
 	else if(lba == INDEX_FAT_TABLE_1_START || lba == INDEX_FAT_TABLE_2_START)
 	{
-		addr = DISK_fatTable;
+		addr = fat_table.get_entry();
 	}
 	else if(lba == INDEX_ROOT_DIRECTORY)
 	{
-		addr = DISK_rootDirectory;
+		addr = root_dir.GetEntry();
 	}
 	else if(lba >= INDEX_DATA_STARTS && lba <= INDEX_DATA_END )
 	{
