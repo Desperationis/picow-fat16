@@ -41,7 +41,7 @@ Fat16::Fat16() {
 	boot.root_dir_entries = uint16_t(512);			// Compatibility
 	boot.total_sec_16 =		uint16_t(0);			// Not used
 	boot.media_type =		uint8_t(0xF8);			// Compatibility
-	boot.fat_table_size =	uint16_t(128);			// 128 Clusters
+	boot.fat_table_size =	uint16_t(129);			// 128 Clusters
 	boot.sec_per_trk =		uint16_t(1);			// Compatibility
 	boot.num_heads =		uint16_t(1);			// Compatibility
 	boot.hidd_sec =			uint32_t(1);			// Compatibility
@@ -66,10 +66,10 @@ Fat16::Fat16() {
 
 
 
-	fat_table.Push(0xFFF8); // FAT ID
-	fat_table.Push(0xFFFF); 
-	fat_table.Push(0xFFFF); // HTML Doc
-	fat_table.Push(0xFFFF); // TXT File
+	fat_table.Push(0xFFF8); // Cluster 0: FAT ID
+	fat_table.Push(0xFFFF); // Cluster 1: Reserved
+	fat_table.Push(0xFFFF); // Cluster 2: HTML Doc
+	fat_table.Push(0xFFFF); // Cluster 3: TXT File
 	
 
 	// The first entry is a special entry that labels the
@@ -105,7 +105,7 @@ Fat16::Fat16() {
 	builder.SetUpdateTime(13, 44, 16);
 	builder.SetUpdateDate(11, 5, 2013);
 	builder.SetStartCluster(3);
-	builder.SetFileSize(0x3E);
+	builder.SetFileSize(4068); // Not 4069 because of \0 character
 	root_dir.PushEntry(builder.Build());
 }
 
@@ -114,6 +114,11 @@ Fat16::Fat16() {
 *
 * @return Size of bytes read. -1 is returned on error.
 */ 
+
+/**
+* Return the sector at LBA. This assumes the USB connection is set so that the host
+* only reads in increments of 512.
+*/
 int32_t Fat16::GetBlock(const uint32_t lba, void* buffer, uint32_t bufsize) {
 	// out of space
 	if ( lba >= DISK_BLOCK_NUM ) return -1;
@@ -139,8 +144,21 @@ int32_t Fat16::GetBlock(const uint32_t lba, void* buffer, uint32_t bufsize) {
 		//printf("lba %d, bufsize %d, offset %d\n",lba, bufsize, offset);
 		//DISK_data is only one section large but the cluster sizes are 8.
 		//So if there was a larger file it would be bad.
-		addr = data[(lba - INDEX_DATA_STARTS) / 8];
 		//printf("loading section %d\n",(lba - INDEX_DATA_STARTS) / 8);
+
+		// Figure out which sector of the cluster must be returned.
+		safe_print("-----OVERRIDE COMMENCE-----\n");
+		//safe_print("lun: %d\n", lun);
+		safe_print("lba: %d\n", lba);
+		//safe_print("offset: %d\n", offset);
+		safe_print("bufsize: %d\n", bufsize);
+		safe_print("--------OVERRIDE END-------\n");
+		safe_print("\n");
+		size_t cluster_number = (lba - INDEX_DATA_STARTS) / 8;
+		size_t clus_start_sec = INDEX_DATA_STARTS + cluster_number * DISK_CLUSTER_SIZE;
+		size_t offset = lba - clus_start_sec;
+
+		addr = data[cluster_number] + offset * DISK_BLOCK_SIZE;
 	}
 	if(addr != 0)
 	{

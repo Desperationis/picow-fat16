@@ -5,6 +5,7 @@
 #include "device/usbd.h"
 #include "tusb.h"
 #include "pico.h"
+#include "fat.h"
 #include "pico/stdlib.h"
 #include "bsp/board.h"
 #include "pico/cyw43_arch.h"
@@ -32,6 +33,8 @@ int main() {
 	safe_print("Sector Size %d\n", FLASH_SECTOR_SIZE);
 	safe_print("Block Size %d\n", FLASH_BLOCK_SIZE);
 	safe_print("Page Size %d\n", FLASH_PAGE_SIZE);
+	safe_print("HTML is %d bytes long\n", sizeof(HTML_Page_Data));
+	safe_print("TXT is %d bytes long\n", sizeof(DATA_Page_Data));
 
 
 	

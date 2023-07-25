@@ -78,7 +78,7 @@
 
 // HID buffer size Should be sufficient to hold ID (if any) + Data
 #define CFG_TUD_HID_EP_BUFSIZE    16
-#define CFG_TUD_MSC_EP_BUFSIZE   512
+#define CFG_TUD_MSC_EP_BUFSIZE   4096
 
 #ifdef __cplusplus
  }
