@@ -22,7 +22,7 @@ void software_reset()
 
 
 
-Fat16 fat_fs;
+Fat16* fat_fs = nullptr;
 
 // Invoked when received SCSI_CMD_INQUIRY
 // Application fill vendor id, product id and revision with string up to 8, 16, 4 characters respectively
@@ -59,10 +59,14 @@ bool tud_msc_test_unit_ready_cb(uint8_t lun)
 // Application update block count and block size
 void tud_msc_capacity_cb(uint8_t lun, uint32_t* block_count, uint16_t* block_size)
 {
-  (void) lun;
+	(void) lun;
+	if(fat_fs == nullptr)
+		fat_fs = new Fat16();
 
-  *block_count = fat_fs.GetBlockCount();
-  *block_size  = fat_fs.GetBlockSize();
+
+
+	*block_count = fat_fs->GetBlockCount();
+	*block_size  = fat_fs->GetBlockSize();
 }
 
 // Invoked when received Start Stop Unit command
@@ -93,14 +97,18 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize)
 {
 	(void) lun;
+	if(fat_fs == nullptr)
+		fat_fs = new Fat16();
 
-	return fat_fs.GetBlock(lba, buffer, bufsize);
+	return fat_fs->GetBlock(lba, buffer, bufsize);
 
 }
 
 bool tud_msc_is_writable_cb (uint8_t lun)
 {
   (void) lun;
+	if(fat_fs == nullptr)
+		fat_fs = new Fat16();
 
 
   return true;

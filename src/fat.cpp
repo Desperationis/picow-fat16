@@ -1,10 +1,17 @@
 #include "fat.h"
 #include "fat_standard.hpp"
+#include "pico_flash.hpp"
 #include "string.h"
 #include "util.h"
 #include "stdio.h"
 #include <string>
 #include <iomanip>
+
+#define DATA1 \
+ R"(Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et)"
+
+#define DATA2 \
+ R"(I pledge allegiance to my Flag and the Republic for which it stands, one nation, indivisible, with liberty and justice for all.)"
 
 Fat16::Fat16() {
 	boot.boot_jump[0] = 0xEB;
@@ -34,22 +41,22 @@ Fat16::Fat16() {
 	// For compatibility reasons, Microsoft themselves recommend going
 	// with a cluster size that isn't too close to the boundaries. This 
 	// is why the Pico must fake 128mb of storage.
-	boot.sector_size =		uint16_t(512);			// Standard sector size
-	boot.cluster_size =		uint8_t(8);				// Compatibility (4k)
-	boot.reserved_sectors = int16_t(1);				// Compatibility
-	boot.fat_copies =		uint8_t(2);				// Compatibility
-	boot.root_dir_entries = uint16_t(512);			// Compatibility
-	boot.total_sec_16 =		uint16_t(0);			// Not used
-	boot.media_type =		uint8_t(0xF8);			// Compatibility
-	boot.fat_table_size =	uint16_t(129);			// 128 Clusters
-	boot.sec_per_trk =		uint16_t(1);			// Compatibility
-	boot.num_heads =		uint16_t(1);			// Compatibility
-	boot.hidd_sec =			uint32_t(1);			// Compatibility
-	boot.total_sec_32 =		uint32_t(262143);		// 128mb
-	boot.drive_num =		uint8_t(0x00);			// Compatibility
-	boot.reserved =			uint8_t(0x00);			// Compatibility
-	boot.boot_sig =			uint8_t(0x29);			// Compatibility
-	boot.volume_id =		uint32_t(0x000B0450);	// Compatibility
+	boot.sector_size =		uint16_t(DISK_BLOCK_SIZE);	// Sector Size
+	boot.cluster_size =		uint8_t(DISK_CLUSTER_SIZE);	// Compatibility (4k)
+	boot.reserved_sectors = int16_t(1);					// Compatibility
+	boot.fat_copies =		uint8_t(2);					// Compatibility
+	boot.root_dir_entries = uint16_t(512);				// Compatibility
+	boot.total_sec_16 =		uint16_t(0);				// Not used
+	boot.media_type =		uint8_t(0xF8);				// Compatibility
+	boot.fat_table_size =	uint16_t(129);				// 128 Clusters
+	boot.sec_per_trk =		uint16_t(1);				// Compatibility
+	boot.num_heads =		uint16_t(1);				// Compatibility
+	boot.hidd_sec =			uint32_t(1);				// Compatibility
+	boot.total_sec_32 =		uint32_t(DISK_BLOCK_NUM);	// 128mb
+	boot.drive_num =		uint8_t(0x00);				// Compatibility
+	boot.reserved =			uint8_t(0x00);				// Compatibility
+	boot.boot_sig =			uint8_t(0x29);				// Compatibility
+	boot.volume_id =		uint32_t(0x000B0450);		// Compatibility
 
 	std::string label("picowremote");
 	for(size_t i = 0; i < label.size(); i++)
@@ -66,10 +73,10 @@ Fat16::Fat16() {
 
 
 
-	fat_table.Push(0xFFF8); // Cluster 0: FAT ID
-	fat_table.Push(0xFFFF); // Cluster 1: Reserved
-	fat_table.Push(0xFFFF); // Cluster 2: HTML Doc
-	fat_table.Push(0xFFFF); // Cluster 3: TXT File
+	fat_table.Set(0, 0xFFF8); // Cluster 0: FAT ID
+	fat_table.Set(1, 0xFFFF); // Cluster 1: Reserved
+	fat_table.Set(2, 0xFFFF); // Cluster 2: HTML Doc
+	fat_table.Set(3, 0xFFFF); // Cluster 3: TXT File
 	
 
 	// The first entry is a special entry that labels the
@@ -86,7 +93,7 @@ Fat16::Fat16() {
 	builder.SetFileSize(0);
 	root_dir.PushEntry(builder.Build());
 
-	builder.SetName("INDEX   ", "HTM");
+	builder.SetName("DATA1   ", "TXT");
 	builder.SetAttribute(builder.ARCHIVE | builder.READ_ONLY);
 	builder.SetCreateTime(13, 42, 36, 198);
 	builder.SetCreateDate(11, 5, 2013);
@@ -94,10 +101,10 @@ Fat16::Fat16() {
 	builder.SetUpdateTime(13, 44, 16);
 	builder.SetUpdateDate(11, 5, 2013);
 	builder.SetStartCluster(2);
-	builder.SetFileSize(0xF1);
+	builder.SetFileSize(sizeof(DATA1) - 1);
 	root_dir.PushEntry(builder.Build());
 
-	builder.SetName("INFO_UF2", "TXT");
+	builder.SetName("DATA2   ", "TXT");
 	builder.SetAttribute(builder.ARCHIVE | builder.READ_ONLY);
 	builder.SetCreateTime(13, 42, 36, 198);
 	builder.SetCreateDate(11, 5, 2013);
@@ -105,8 +112,20 @@ Fat16::Fat16() {
 	builder.SetUpdateTime(13, 44, 16);
 	builder.SetUpdateDate(11, 5, 2013);
 	builder.SetStartCluster(3);
-	builder.SetFileSize(4068); // Not 4069 because of \0 character
+	builder.SetFileSize(sizeof(DATA2) - 1); 
 	root_dir.PushEntry(builder.Build());
+
+	uint8_t data[FLASH_SECTOR_SIZE];
+	memset(data, 0, FLASH_SECTOR_SIZE);
+	memcpy(data, DATA1, sizeof(DATA1));
+	PicoFlash::Erase(FLASH_DATA_START, DISK_CLUSTER_SIZE);
+	PicoFlash::Program(FLASH_DATA_START, data, sizeof(data)); 
+
+	uint32_t offset = DISK_CLUSTER_SIZE * DISK_BLOCK_SIZE;
+	memset(data, 0, FLASH_SECTOR_SIZE);
+	memcpy(data, DATA2, sizeof(DATA2));
+	PicoFlash::Erase(FLASH_DATA_START + offset, DISK_CLUSTER_SIZE);
+	PicoFlash::Program(FLASH_DATA_START + offset, data, sizeof(data)); 
 }
 
 /**
@@ -141,24 +160,19 @@ int32_t Fat16::GetBlock(const uint32_t lba, void* buffer, uint32_t bufsize) {
 	}
 	else if(lba >= INDEX_DATA_STARTS && lba <= INDEX_DATA_END )
 	{
-		//printf("lba %d, bufsize %d, offset %d\n",lba, bufsize, offset);
-		//DISK_data is only one section large but the cluster sizes are 8.
-		//So if there was a larger file it would be bad.
-		//printf("loading section %d\n",(lba - INDEX_DATA_STARTS) / 8);
+		size_t cluster_number = (lba - INDEX_DATA_STARTS) / DISK_CLUSTER_SIZE;
+		size_t clus_start_sec = INDEX_DATA_STARTS + cluster_number * DISK_CLUSTER_SIZE;
+		size_t offset_sec = lba - clus_start_sec;
 
-		// Figure out which sector of the cluster must be returned.
 		safe_print("-----OVERRIDE COMMENCE-----\n");
-		//safe_print("lun: %d\n", lun);
 		safe_print("lba: %d\n", lba);
-		//safe_print("offset: %d\n", offset);
 		safe_print("bufsize: %d\n", bufsize);
+		safe_print("cluster number: %d\n", cluster_number);
 		safe_print("--------OVERRIDE END-------\n");
 		safe_print("\n");
-		size_t cluster_number = (lba - INDEX_DATA_STARTS) / 8;
-		size_t clus_start_sec = INDEX_DATA_STARTS + cluster_number * DISK_CLUSTER_SIZE;
-		size_t offset = lba - clus_start_sec;
 
-		addr = data[cluster_number] + offset * DISK_BLOCK_SIZE;
+		addr = (char*)(XIP_BASE + FLASH_DATA_START + cluster_number * DISK_CLUSTER_SIZE * DISK_BLOCK_SIZE + offset_sec * DISK_BLOCK_SIZE); 
+		//addr = data[cluster_number] + offset * DISK_BLOCK_SIZE;
 	}
 	if(addr != 0)
 	{

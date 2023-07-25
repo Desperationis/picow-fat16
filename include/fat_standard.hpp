@@ -50,34 +50,32 @@ struct __attribute__((packed)) BootSector {
 struct FATTable {
 public:
 	FATTable() {
-		current_entry = 0;
-		memset(entry, 0, sizeof(entry));
+		memset(entries, 0, sizeof(entries));
 	}
 
 	/**
-	 * Push this byte to the entry. Data must be written as
-	 * big-endian as memcpy will flip it to little endian.
+	 * Each entry corresponds to a cluster. For example, Entry #17 is
+	 * Cluster #17, Entry #0 is Cluster #0, etc. The value in this index
+	 * tells the next cluster to look at. If 0xFF, it ends the "chain",
+	 * allowing you to form a file from multiple clusters. If a cluster
+	 * starts with 0xFF, then the file is only one cluster long, for
+	 * example.
 	 */
-	void Push(int16_t data) {
-		entry[current_entry] = data;
-		current_entry++;
+	void Set(uint16_t cluster, uint16_t next_cluster) {
+		entries[cluster] = next_cluster;
 	}
 
 	uint16_t* GetBytes() {
-		return entry;
+		return entries;
 	}
 
 
 private:
-	// (129 sectors per FAT * 512 byte sectors) / 16-byte entry
-	// == 4128 entries possible <-- TODO: This is wrong!!!
+	// Our FAT only has 129 entries, look at boot entry.
 	//
 	// Just like BootSector, memcpy converts this to little
 	// endian automatically.
-	uint16_t entry[256];
-
-	// The current entry index on the array we are on.
-	size_t current_entry;
+	uint16_t entries[129];
 };
 
 /**
@@ -196,7 +194,7 @@ class RootDirectory {
 public:
 	RootDirectory() {
 		current_entry = 0;
-
+		memset(entries, 0, sizeof(entries));
 	}
 
 	void PushEntry(DirectoryEntry entry) {
