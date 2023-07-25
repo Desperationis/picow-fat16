@@ -1,5 +1,4 @@
 #pragma once
-#include <cassert>
 #include "stdio.h"
 #include "stdint.h"
 #include "string.h"
@@ -48,9 +47,9 @@ struct __attribute__((packed)) BootSector {
  * #1 and #2 are meant to be identical with error checking code to see
  * if one is corrupted, but this implemention will not cover that.
  */
-struct FAT {
+struct FATTable {
 public:
-	FAT() {
+	FATTable() {
 		current_entry = 0;
 		memset(entry, 0, sizeof(entry));
 	}
@@ -59,12 +58,12 @@ public:
 	 * Push this byte to the entry. Data must be written as
 	 * big-endian as memcpy will flip it to little endian.
 	 */
-	void push(int16_t data) {
+	void Push(int16_t data) {
 		entry[current_entry] = data;
 		current_entry++;
 	}
 
-	uint16_t* get_entry() {
+	uint16_t* GetBytes() {
 		return entry;
 	}
 
@@ -198,41 +197,6 @@ public:
 	RootDirectory() {
 		current_entry = 0;
 
-		// The first entry is a special entry that labels the
-		// partition.
-		DirectoryEntryBuilder builder;
-		builder.SetName("picowrem", "ote");
-		builder.SetAttribute(builder.ARCHIVE | builder.VOLUME_LABEL);
-		builder.SetCreateTime(0, 0, 0, 0);
-		builder.SetCreateDate(0, 0, 1980);
-		builder.SetLastAccessDate(0, 0, 1980);
-		builder.SetUpdateTime(0, 0 ,0);
-		builder.SetUpdateDate(0, 0, 1980);
-		builder.SetStartCluster(0);
-		builder.SetFileSize(0);
-		PushEntry(builder.Build());
-
-		builder.SetName("INDEX   ", "HTM");
-		builder.SetAttribute(builder.ARCHIVE | builder.READ_ONLY);
-		builder.SetCreateTime(13, 42, 36, 198);
-		builder.SetCreateDate(11, 5, 2013);
-		builder.SetLastAccessDate(11, 5, 2013);
-		builder.SetUpdateTime(13, 44, 16);
-		builder.SetUpdateDate(11, 5, 2013);
-		builder.SetStartCluster(2);
-		builder.SetFileSize(0xF1);
-		PushEntry(builder.Build());
-
-		builder.SetName("INFO_UF2", "TXT");
-		builder.SetAttribute(builder.ARCHIVE | builder.READ_ONLY);
-		builder.SetCreateTime(13, 42, 36, 198);
-		builder.SetCreateDate(11, 5, 2013);
-		builder.SetLastAccessDate(11, 5, 2013);
-		builder.SetUpdateTime(13, 44, 16);
-		builder.SetUpdateDate(11, 5, 2013);
-		builder.SetStartCluster(3);
-		builder.SetFileSize(0x3E);
-		PushEntry(builder.Build());
 	}
 
 	void PushEntry(DirectoryEntry entry) {
@@ -240,7 +204,7 @@ public:
 		current_entry++;
 	}
 
-	DirectoryEntry* GetEntry() {
+	DirectoryEntry* GetBytes() {
 		return entries;
 	}
 
@@ -249,8 +213,6 @@ private:
 	DirectoryEntry entries[512];
 	size_t current_entry;
 };
-
-static_assert(sizeof(DirectoryEntry) == 32, "Directory Entry size is not right");
 
 }
 

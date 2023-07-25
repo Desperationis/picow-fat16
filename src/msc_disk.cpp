@@ -22,15 +22,7 @@ void software_reset()
 
 
 
-#define MAX_SECTION_COUNT_FOR_FLASH_SECTION (FLASH_SECTOR_SIZE/FLASH_PAGE_SIZE)
-struct flashingLocation {
-  unsigned int pageCountFlash;
-}flashingLocation = {.pageCountFlash = 0};
-
-
-
 Fat16 fat_fs;
-
 
 // Invoked when received SCSI_CMD_INQUIRY
 // Application fill vendor id, product id and revision with string up to 8, 16, 4 characters respectively
@@ -69,8 +61,8 @@ void tud_msc_capacity_cb(uint8_t lun, uint32_t* block_count, uint16_t* block_siz
 {
   (void) lun;
 
-  *block_count = fat_fs.get_block_count();
-  *block_size  = fat_fs.get_block_size();
+  *block_count = fat_fs.GetBlockCount();
+  *block_size  = fat_fs.GetBlockSize();
 }
 
 // Invoked when received Start Stop Unit command
@@ -102,7 +94,7 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buff
 {
 	(void) lun;
 
-	return fat_fs.get_block(lba, buffer, bufsize);
+	return fat_fs.GetBlock(lba, buffer, bufsize);
 
 }
 
