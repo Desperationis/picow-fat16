@@ -3,9 +3,11 @@
 #include "pico_flash.hpp"
 #include "string.h"
 #include "util.h"
+#include "bsp/board.h"
 #include "stdio.h"
 #include <string>
 #include <iomanip>
+#include "hardware/gpio.h"
 
 #define DATA1 \
  R"(Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et)"
@@ -117,30 +119,37 @@ Fat16::Fat16() {
 	builder.SetFileSize(sizeof(DATA2) - 1); 
 	root_dir.PushEntry(builder.Build());
 
+	// Shorting this pin manually will reset filesystem
+	gpio_init(17);
+	gpio_set_dir(17, GPIO_IN);
+	gpio_pull_up(17);
+	sleep_ms(50);
 
-	// FAT
-	/*uint8_t fat_data[FLASH_SECTOR_SIZE];
-	memset(fat_data, 0, sizeof(fat_data));
-	memcpy(fat_data, fat_table.GetBytes(), 129 * 2);
-	PicoFlash::Erase(FLASH_FAT, 1);
-	PicoFlash::Program(FLASH_FAT, fat_data, sizeof(fat_data)); 
+	if (gpio_get(17) == 0) {
+		// FAT
+		uint8_t fat_data[FLASH_SECTOR_SIZE];
+		memset(fat_data, 0, sizeof(fat_data));
+		memcpy(fat_data, fat_table.GetBytes(), 129 * 2);
+		PicoFlash::Erase(FLASH_FAT, 1);
+		PicoFlash::Program(FLASH_FAT, fat_data, sizeof(fat_data)); 
 
-	// Root
-	PicoFlash::Erase(FLASH_ROOT_DIRECTORY, 4);
-	PicoFlash::Program(FLASH_ROOT_DIRECTORY, (uint8_t*) root_dir.GetBytes(), 512 * 32); 
+		// Root
+		PicoFlash::Erase(FLASH_ROOT_DIRECTORY, 4);
+		PicoFlash::Program(FLASH_ROOT_DIRECTORY, (uint8_t*) root_dir.GetBytes(), 512 * 32); 
 
-	// 2 Data files
-	uint8_t data[FLASH_SECTOR_SIZE];
-	memset(data, 0, FLASH_SECTOR_SIZE);
-	memcpy(data, DATA1, sizeof(DATA1));
-	PicoFlash::Erase(FLASH_DATA_START, 1);
-	PicoFlash::Program(FLASH_DATA_START, data, sizeof(data)); 
+		// 2 Data files
+		uint8_t data[FLASH_SECTOR_SIZE];
+		memset(data, 0, FLASH_SECTOR_SIZE);
+		memcpy(data, DATA1, sizeof(DATA1));
+		PicoFlash::Erase(FLASH_DATA_START, 1);
+		PicoFlash::Program(FLASH_DATA_START, data, sizeof(data)); 
 
-	uint32_t offset = DISK_CLUSTER_SIZE * DISK_BLOCK_SIZE;
-	memset(data, 0, FLASH_SECTOR_SIZE);
-	memcpy(data, DATA2, sizeof(DATA2));
-	PicoFlash::Erase(FLASH_DATA_START + offset, 1);
-	PicoFlash::Program(FLASH_DATA_START + offset, data, sizeof(data));*/
+		uint32_t offset = DISK_CLUSTER_SIZE * DISK_BLOCK_SIZE;
+		memset(data, 0, FLASH_SECTOR_SIZE);
+		memcpy(data, DATA2, sizeof(DATA2));
+		PicoFlash::Erase(FLASH_DATA_START + offset, 1);
+		PicoFlash::Program(FLASH_DATA_START + offset, data, sizeof(data));
+	}
 }
 
 /**

@@ -11,6 +11,7 @@
  * Slowly print out string to UART to reduce impedeance on thin wires.
  */
 void safe_print(const char* format, ...) {
+#ifdef DEBUG_UART
     va_list args;
     va_start(args, format);
 
@@ -31,6 +32,7 @@ void safe_print(const char* format, ...) {
 	}
 
     delete[] buffer;
+#endif
 }
 
 

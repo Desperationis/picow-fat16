@@ -78,7 +78,10 @@
 
 // HID buffer size Should be sufficient to hold ID (if any) + Data
 #define CFG_TUD_HID_EP_BUFSIZE    16
-#define CFG_TUD_MSC_EP_BUFSIZE   4096
+
+// Max bytes the computer can read or write data at a time. Any lower, and it
+// doesn't work when reading the data clusters.
+#define CFG_TUD_MSC_EP_BUFSIZE 4096
 
 #ifdef __cplusplus
  }
