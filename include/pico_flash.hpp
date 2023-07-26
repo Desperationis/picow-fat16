@@ -59,21 +59,42 @@ public:
 	 * must not "spill" into the next sector.
 	 */
 	static void Modify(uint32_t page_addr, uint8_t* buffer, uint32_t bufsize) {
+		safe_print("--------MODIFY START-------\n");
+		safe_print("Modifying %d bytes to page-aligned address 0x%X\n", bufsize, page_addr);
 		size_t current_sector_num = page_addr / FLASH_SECTOR_SIZE;
 		uint32_t sector_addr = current_sector_num * FLASH_SECTOR_SIZE;
 		uint32_t sector_offset = page_addr - sector_addr;
+		safe_print("0x%X is located in sector #%d of Pico, which starts at %X\n", page_addr, current_sector_num, sector_addr);
+		safe_print("Compared to start of sector, modify is 0x%X bytes from the start of the sector\n", sector_offset);
 
-		// Check if write is aligned to sector
+		// Check if write is all within sector
 		uint32_t sector_end_addr = sector_addr + FLASH_SECTOR_SIZE;
 		if (bufsize > (sector_end_addr - page_addr)) {
 			safe_print("Write will overexceed sector. Not writing.");
+			safe_print("---------MODIFY END--------\n");
 			return;
 		}
 
 		uint8_t sector_data[FLASH_SECTOR_SIZE];
 		Read(sector_addr, sector_data, FLASH_SECTOR_SIZE);
 
-		// Check if we need to erase entire sector to write
+		safe_print("Checking if modified data is already present\n");
+		bool no_change = true;
+		for(size_t i = sector_offset; i < sector_offset + bufsize; i++) {
+			if (sector_data[i] != buffer[i - sector_offset]) {
+				no_change = false;
+				break;
+			}
+		}
+
+		if (no_change) {
+			safe_print("Data is already present. Not writing.\n");
+			return;
+		}
+
+		safe_print("Data is not present.\n");
+		safe_print("Checking if sector must be erased\n");
+
 		bool is_erased = true;
 		for(size_t i = sector_offset; i < sector_offset + bufsize; i++) {
 			if (sector_data[i] != 0xFF) {
@@ -84,17 +105,24 @@ public:
 
 		// Write Data 
 		if (!is_erased) {
+			safe_print("Sector is not erased. Erasing...\n");
 			Erase(sector_addr, 1);
 
+			safe_print("Modifying data already present...\n");
 			for(size_t i = 0; i < bufsize; i++) {
 				sector_data[sector_offset + i] = buffer[i];
 			}
 
-			Program(page_addr, sector_data, FLASH_SECTOR_SIZE);
+			safe_print("Rewriting sector with %d bytes at offset 0x%X changed...\n", bufsize, sector_offset);
+			Program(sector_addr, sector_data, FLASH_SECTOR_SIZE);
+			safe_print("Done");
 		}
 		else {
+			safe_print("Sector is already erased. Writing %d bytes to 0x%X\n", bufsize, page_addr);
 			Program(page_addr, buffer, bufsize);
 		}
+
+		safe_print("---------MODIFY END--------\n");
 	}
 
 };

@@ -119,12 +119,10 @@ bool tud_msc_is_writable_cb (uint8_t lun)
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* buffer, uint32_t bufsize)
 {
 	(void) lun;
-	safe_print("New Write:");
-	safe_print("lun: %d\n", (int)lun);
-	safe_print("lba: %d\n", (int)lba);
-	safe_print("offset: %d\n", (int)offset);
-	safe_print("Bytes written: %d\n", (int)bufsize);
-	return bufsize;
+	if(fat_fs == nullptr)
+		fat_fs = new Fat16();
+
+	return fat_fs->WriteBlock(lba, buffer, bufsize);
 }
 
 // Callback invoked when received an SCSI command not in built-in list below

@@ -26,14 +26,13 @@ public:
 	static constexpr uint32_t INDEX_FAT_TABLE_2_START = 0x82;
 	static constexpr uint32_t INDEX_ROOT_DIRECTORY = 0x103;
 	static constexpr uint32_t INDEX_DATA_STARTS = 0x123;
-	static constexpr uint32_t INDEX_DATA_END = (0x12b + DISK_CLUSTER_SIZE - 1);
 
 	// Thanks to
 	// https://www.makermatrix.com/blog/read-and-write-data-with-the-pi-pico-onboard-flash/
 	//
-	// Location on Pico flash memory. This program is located in the front
-	// of flash, meaning we must store FAT, Root Dir, and DATA near the
-	// back.
+	// Location on Pico flash memory, in bytes. This program is located in
+	// the front of flash, meaning we must store FAT, Root Dir, and DATA
+	// near the back.
 	//
 	// Useful information:
 	// - Sector size is 4kb on Pico flash
@@ -41,8 +40,8 @@ public:
 	// erase the whole sector, which sets everything to 1.
 	static constexpr uint32_t FLASH_REFERENCE = (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE * 200);
 	static constexpr uint32_t FLASH_FAT = FLASH_REFERENCE;
-	static constexpr uint32_t FLASH_ROOT_DIRECTORY = FLASH_FAT + 0x81 + 0x81;
-	static constexpr uint32_t FLASH_DATA_START = FLASH_ROOT_DIRECTORY + 0x20;
+	static constexpr uint32_t FLASH_ROOT_DIRECTORY = FLASH_FAT + FLASH_SECTOR_SIZE;
+	static constexpr uint32_t FLASH_DATA_START = FLASH_ROOT_DIRECTORY + 512 * 32;
 
 public:
 	Fat16();
@@ -57,11 +56,10 @@ public:
 
 	int32_t GetBlock(const uint32_t lba, void* buffer, uint32_t bufsize);
 
+	int32_t WriteBlock(const uint32_t lba, void* buffer, uint32_t bufsize);
 
 private:
 	fat::BootSector boot;
-	fat::FATTable fat_table;
-	fat::RootDirectory root_dir;
 };
 
 

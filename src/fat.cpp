@@ -73,11 +73,13 @@ Fat16::Fat16() {
 
 
 
+	fat::FATTable fat_table;
 	fat_table.Set(0, 0xFFF8); // Cluster 0: FAT ID
 	fat_table.Set(1, 0xFFFF); // Cluster 1: Reserved
 	fat_table.Set(2, 0xFFFF); // Cluster 2: HTML Doc
 	fat_table.Set(3, 0xFFFF); // Cluster 3: TXT File
 	
+	fat::RootDirectory root_dir;
 
 	// The first entry is a special entry that labels the
 	// partition.
@@ -115,17 +117,30 @@ Fat16::Fat16() {
 	builder.SetFileSize(sizeof(DATA2) - 1); 
 	root_dir.PushEntry(builder.Build());
 
+
+	// FAT
+	/*uint8_t fat_data[FLASH_SECTOR_SIZE];
+	memset(fat_data, 0, sizeof(fat_data));
+	memcpy(fat_data, fat_table.GetBytes(), 129 * 2);
+	PicoFlash::Erase(FLASH_FAT, 1);
+	PicoFlash::Program(FLASH_FAT, fat_data, sizeof(fat_data)); 
+
+	// Root
+	PicoFlash::Erase(FLASH_ROOT_DIRECTORY, 4);
+	PicoFlash::Program(FLASH_ROOT_DIRECTORY, (uint8_t*) root_dir.GetBytes(), 512 * 32); 
+
+	// 2 Data files
 	uint8_t data[FLASH_SECTOR_SIZE];
 	memset(data, 0, FLASH_SECTOR_SIZE);
 	memcpy(data, DATA1, sizeof(DATA1));
-	PicoFlash::Erase(FLASH_DATA_START, DISK_CLUSTER_SIZE);
+	PicoFlash::Erase(FLASH_DATA_START, 1);
 	PicoFlash::Program(FLASH_DATA_START, data, sizeof(data)); 
 
 	uint32_t offset = DISK_CLUSTER_SIZE * DISK_BLOCK_SIZE;
 	memset(data, 0, FLASH_SECTOR_SIZE);
 	memcpy(data, DATA2, sizeof(DATA2));
-	PicoFlash::Erase(FLASH_DATA_START + offset, DISK_CLUSTER_SIZE);
-	PicoFlash::Program(FLASH_DATA_START + offset, data, sizeof(data)); 
+	PicoFlash::Erase(FLASH_DATA_START + offset, 1);
+	PicoFlash::Program(FLASH_DATA_START + offset, data, sizeof(data));*/
 }
 
 /**
@@ -143,6 +158,7 @@ int32_t Fat16::GetBlock(const uint32_t lba, void* buffer, uint32_t bufsize) {
 	if ( lba >= DISK_BLOCK_NUM ) return -1;
 
 	void* addr = 0;
+
 	if(lba == INDEX_RESERVED)
 	{
 		//addr = DISK_reservedSection;
@@ -152,24 +168,33 @@ int32_t Fat16::GetBlock(const uint32_t lba, void* buffer, uint32_t bufsize) {
 	// FAT #2 is meant to be used to have a copy of data for corruption prevention.
 	else if(lba == INDEX_FAT_TABLE_1_START || lba == INDEX_FAT_TABLE_2_START)
 	{
-		addr = fat_table.GetBytes();
+		addr = (char*)(XIP_BASE + FLASH_FAT);
 	}
 	else if(lba == INDEX_ROOT_DIRECTORY)
 	{
-		addr = root_dir.GetBytes();
+		//addr = root_dir.GetBytes();
+		addr = (char*)(XIP_BASE + FLASH_ROOT_DIRECTORY);
+
+		// Too big, bigger than bufsize
+		// local_bufsize = sizeof(root_dir.GetBytes());
 	}
-	else if(lba >= INDEX_DATA_STARTS && lba <= INDEX_DATA_END )
+	else if(lba >= INDEX_DATA_STARTS)
 	{
 		size_t cluster_number = (lba - INDEX_DATA_STARTS) / DISK_CLUSTER_SIZE;
 		size_t clus_start_sec = INDEX_DATA_STARTS + cluster_number * DISK_CLUSTER_SIZE;
 		size_t offset_sec = lba - clus_start_sec;
 
-		safe_print("-----OVERRIDE COMMENCE-----\n");
+		// If you are debugging this, change the conditional to:
+		// lba >= INDEX_DATA_STARTS && lba <= INDEX_DATA_END
+		// and defiend INDEx_DATA_END somewhere, as otherwise
+		// If will keep reading until it reaches the end of drive.
+	
+		/*safe_print("-----DATA READ COMMENCE-----\n");
 		safe_print("lba: %d\n", lba);
 		safe_print("bufsize: %d\n", bufsize);
 		safe_print("cluster number: %d\n", cluster_number);
-		safe_print("--------OVERRIDE END-------\n");
-		safe_print("\n");
+		safe_print("--------DATA READ END-------\n");
+		safe_print("\n");*/
 
 		addr = (char*)(XIP_BASE + FLASH_DATA_START + cluster_number * DISK_CLUSTER_SIZE * DISK_BLOCK_SIZE + offset_sec * DISK_BLOCK_SIZE); 
 		//addr = data[cluster_number] + offset * DISK_BLOCK_SIZE;
@@ -181,5 +206,47 @@ int32_t Fat16::GetBlock(const uint32_t lba, void* buffer, uint32_t bufsize) {
 	else{
 		memset(buffer,0, bufsize);
 	}
+	return (int32_t) bufsize;
+}
+
+int32_t Fat16::WriteBlock(const uint32_t lba, void* buffer, uint32_t bufsize) {
+	// out of space
+	if ( lba >= DISK_BLOCK_NUM ) return -1;
+
+	safe_print("-----WRITE COMMENCE-----\n");
+	safe_print("lba: %d\n", (int)lba);
+	safe_print("Bytes written: %d\n", (int)bufsize);
+	safe_print("--------WRITE END-------\n");
+	
+	// Translate LBA addresses to Flash addresses
+	uint32_t flash_addr = 0;
+	if(lba >= INDEX_DATA_STARTS) {
+		uint32_t block_difference = lba - INDEX_DATA_STARTS;
+
+		// Each block is 512, according to boot sector. Page size on
+		// Pico is 256.
+		flash_addr = FLASH_DATA_START + block_difference * FLASH_PAGE_SIZE * 2;
+
+	}
+
+	else if (lba >= INDEX_ROOT_DIRECTORY) {
+		uint32_t block_difference = lba - INDEX_ROOT_DIRECTORY;
+
+		// Each block is 512, according to boot sector. Page size on
+		// Pico is 256.
+		flash_addr = FLASH_ROOT_DIRECTORY + block_difference * FLASH_PAGE_SIZE * 2;
+
+	}
+	else if (lba >= INDEX_FAT_TABLE_1_START) {
+		uint32_t block_difference = lba - INDEX_FAT_TABLE_1_START;
+
+		// Each block is 512, according to boot sector. Page size on
+		// Pico is 256.
+		flash_addr = FLASH_FAT + block_difference * FLASH_PAGE_SIZE * 2;
+	}
+
+	if (flash_addr != 0)
+		PicoFlash::Modify(flash_addr, (uint8_t*)buffer, bufsize);
+
 	return (int32_t) bufsize;
 }
