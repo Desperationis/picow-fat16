@@ -58,6 +58,10 @@ public:
 
 	int32_t WriteBlock(const uint32_t lba, void* buffer, uint32_t bufsize);
 
+	constexpr uint32_t LBAToIndex(const uint32_t lba) const;
+
+	constexpr uint32_t LBAToFlash(const uint32_t lba) const;
+
 private:
 	fat::BootSector boot;
 };

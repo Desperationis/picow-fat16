@@ -10,18 +10,6 @@
 // whether host does safe-eject
 static bool ejected = false;
 
-// Some MCU doesn't have enough 8KB SRAM to store the whole disk
-// We will use Flash as read-only disk with board that has
-
-void software_reset()
-{
-    watchdog_enable(1, 1);
-    while(1);
-}
-
-
-
-
 Fat16* fat_fs = nullptr;
 
 // Invoked when received SCSI_CMD_INQUIRY
