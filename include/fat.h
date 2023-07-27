@@ -38,8 +38,8 @@ public:
 	// - Sector size is 4kb on Pico flash
 	// - Due to how Flash works, you can't change a 0 to a 1. You'd need to
 	// erase the whole sector, which sets everything to 1.
-	static constexpr uint32_t FLASH_REFERENCE = (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE * 200);
-	static constexpr uint32_t FLASH_FAT = FLASH_REFERENCE;
+	static constexpr uint32_t FLASH_BOOT = (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE * 200);
+	static constexpr uint32_t FLASH_FAT = FLASH_BOOT + FLASH_SECTOR_SIZE;
 	static constexpr uint32_t FLASH_ROOT_DIRECTORY = FLASH_FAT + FLASH_SECTOR_SIZE;
 	static constexpr uint32_t FLASH_DATA_START = FLASH_ROOT_DIRECTORY + 512 * 32;
 
@@ -61,9 +61,6 @@ public:
 	constexpr uint32_t LBAToIndex(const uint32_t lba) const;
 
 	constexpr uint32_t LBAToFlash(const uint32_t lba) const;
-
-private:
-	fat::BootSector boot;
 };
 
 

@@ -16,6 +16,7 @@
  R"(I pledge allegiance to my Flag and the Republic for which it stands, one nation, indivisible, with liberty and justice for all.)"
 
 Fat16::Fat16() {
+	fat::BootSector boot;
 	boot.boot_jump[0] = 0xEB;
 	boot.boot_jump[1] = 0x3C;
 	boot.boot_jump[2] = 0x90;
@@ -126,6 +127,12 @@ Fat16::Fat16() {
 	sleep_ms(50);
 
 	if (gpio_get(17) == 0) {
+		// Boot
+		uint8_t boot_data[512];
+		memcpy(boot_data, &boot, sizeof(boot));
+		PicoFlash::Erase(FLASH_BOOT, 1);
+		PicoFlash::Program(FLASH_BOOT, boot_data, sizeof(boot_data)); 
+
 		// FAT
 		uint8_t fat_data[FLASH_SECTOR_SIZE];
 		memset(fat_data, 0, sizeof(fat_data));
@@ -168,16 +175,8 @@ int32_t Fat16::GetBlock(const uint32_t lba, void* buffer, uint32_t bufsize) {
 
 	uint32_t index = LBAToIndex(lba);
 
-	// Statically stored on executable
-	if(index == INDEX_RESERVED) {
-		memcpy(buffer, &boot, bufsize);
-	}
-
-	// On flash
-	if (index != INDEX_RESERVED) {
-		// XIP_BASE is to skip the RAM of the Pico
-		memcpy(buffer, (char*)(XIP_BASE + LBAToFlash(lba)), bufsize);
-	}
+	// XIP_BASE is to skip the RAM of the Pico
+	memcpy(buffer, (char*)(XIP_BASE + LBAToFlash(lba)), bufsize);
 
 	return (int32_t) bufsize;
 }
@@ -233,6 +232,9 @@ constexpr uint32_t Fat16::LBAToFlash(const uint32_t lba) const {
 
 	if (index == INDEX_DATA_STARTS)
 		return FLASH_DATA_START + byte_offset;
+
+	if (index == INDEX_RESERVED)
+		return FLASH_BOOT + byte_offset;
 
 	return 0;
 }
